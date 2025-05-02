@@ -914,34 +914,34 @@
         }
         
         // 检查是否在武器库页面
-        let isInHorsePage = false;
+        let isInWeaponPage = false;
         
         // 方法1：检查URL
-        if (window.location.href.includes('horsees.php')) {
-            isInHorsePage = true;
+        if (window.location.href.includes('displace.php')) {
+            isInWeaponPage = true;
         }
         
         // 方法2：检查页面元素
-        if (!isInHorsePage) {
-            // 尝试查找战马相关元素
-            if (document.getElementById('get_free') && document.getElementById('max_get_free')) {
-                isInHorsePage = true;
+        if (!isInWeaponPage) {
+            // 尝试查找武器幻化相关元素
+            if (document.getElementById('get_times') && document.getElementById('max_get_times')) {
+                isInWeaponPage = true;
             }
         }
         
         // 方法3：检查菜单高亮
-        if (!isInHorsePage) {
+        if (!isInWeaponPage) {
             const menuLinks = document.querySelectorAll('#main_menu a');
             for (const link of menuLinks) {
-                if (link.textContent.includes('战马') && link.classList.contains('highlight')) {
-                    isInHorsePage = true;
+                if (link.textContent.includes('武器库') && link.classList.contains('highlight')) {
+                    isInWeaponPage = true;
                     break;
                 }
             }
         }
         
-        if (!isInHorsePage) {
-            alert('请先进入战马页面！');
+        if (!isInWeaponPage) {
+            alert('请先进入武器库页面！');
             button.textContent = '执行';
             button.dataset.running = 'false';
             return;
@@ -977,7 +977,7 @@
                 
                 // 如果次数已用完，停止执行
                 if (remainingTimes <= 0) {
-                    console.log('武器幻化 - 次数已用完，停止执行');
+                    alert('武器幻化 - 次数已用完，停止执行');
                     button.textContent = '执行';
                     button.dataset.running = 'false';
                     return;
