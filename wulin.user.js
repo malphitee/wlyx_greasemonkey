@@ -8,6 +8,7 @@
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        unsafeWindow
 // ==/UserScript==
 
 (function() {
@@ -44,6 +45,7 @@
         <h2>武林英雄脚本</h2>
         <div class="module-group" data-module-group="main">
             <div class="module-title" data-module="wuhun">武魂</div>
+            <div class="module-title" data-module="daily">日常</div>
         </div>
         <div class="module-group" data-module-group="wuhun" style="display:none;">
             <ul class="module-list">
@@ -64,26 +66,38 @@
             </ul>
             <button id="back-button">返回</button>
         </div>
+        <div class="module-group" data-module-group="daily" style="display:none;">
+            <ul class="module-list">
+                <li>武器幻化 <button class="execute-button" data-action="weaponDisplace">执行</button></li>
+                <li>厉兵秣马 <button class="execute-button" data-action="horseTraining">执行</button></li>
+            </ul>
+            <button id="back-button">返回</button>
+        </div>
     `;
     document.body.appendChild(floatingWindow);
 
-    // 返回按钮点击事件
-    document.querySelector('#back-button').addEventListener('click', function() {
-        floatingWindow.querySelector('[data-module-group="wuhun"]').style.display = 'none';
-        floatingWindow.querySelector('[data-module-group="main"]').style.display = 'block';
+    // 添加事件监听
+    floatingWindow.querySelector('[data-module="wuhun"]').addEventListener('click', function() {
+        floatingWindow.querySelector('[data-module-group="main"]').style.display = 'none';
+        floatingWindow.querySelector('[data-module-group="wuhun"]').style.display = 'block';
     });
-
-    // 模块点击事件
-    document.querySelectorAll('#myFloatingWindow .module-title').forEach(title => {
-        title.addEventListener('click', function() {
-            let module = this.dataset.module;
-            floatingWindow.querySelector('[data-module-group="main"]').style.display = 'none';
-            floatingWindow.querySelector('[data-module-group="'+ module +'"]').style.display = 'block';
+    
+    floatingWindow.querySelector('[data-module="daily"]').addEventListener('click', function() {
+        floatingWindow.querySelector('[data-module-group="main"]').style.display = 'none';
+        floatingWindow.querySelector('[data-module-group="daily"]').style.display = 'block';
+    });
+    
+    // 返回按钮事件 - 修复多个返回按钮的问题
+    floatingWindow.querySelectorAll('#back-button').forEach(button => {
+        button.addEventListener('click', function() {
+            floatingWindow.querySelector('[data-module-group="wuhun"]').style.display = 'none';
+            floatingWindow.querySelector('[data-module-group="daily"]').style.display = 'none';
+            floatingWindow.querySelector('[data-module-group="main"]').style.display = 'block';
         });
     });
 
     // 执行按钮点击事件
-    document.querySelectorAll('#myFloatingWindow .execute-button').forEach(button => {
+    floatingWindow.querySelectorAll('.execute-button').forEach(button => {
         button.addEventListener('click', function() {
             let action = this.dataset.action;
             switch (action) {
@@ -104,7 +118,7 @@
                     if (this.textContent === '执行') {
                         this.textContent = '停止';
                         this.dataset.running = 'true';
-                        const trainTimesInput = document.querySelector('.train-times');
+                        const trainTimesInput = floatingWindow.querySelector('.train-times');
                         const trainTimes = parseInt(trainTimesInput.value) || 0;
                         trainWuhun(this, trainTimes);
                     } else {
@@ -116,10 +130,30 @@
                     if (this.textContent === '执行') {
                         this.textContent = '停止';
                         this.dataset.running = 'true';
-                        const fosterTimesInput = document.querySelector('.foster-times');
+                        const fosterTimesInput = floatingWindow.querySelector('.foster-times');
                         const fosterTimes = parseInt(fosterTimesInput.value) || 0;
-                        const fosterAttrs = Array.from(document.querySelectorAll('.foster-attr')).filter(attr => attr.checked).map(attr => attr.value);
+                        const fosterAttrs = Array.from(floatingWindow.querySelectorAll('.foster-attr')).filter(attr => attr.checked).map(attr => attr.value);
                         fosterWuhun(button, fosterTimes, fosterAttrs);
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'weaponDisplace':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        weaponDisplace();
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'horseTraining':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        horseTraining();
                     } else {
                         this.textContent = '执行';
                         this.dataset.running = 'false';
@@ -828,5 +862,186 @@
         
         // 开始执行培养流程
         executeFoster();
+    }
+
+    // 武器幻化功能
+    function weaponDisplace() {
+        const button = document.querySelector('button[data-action="weaponDisplace"]');
+        if (!button || button.textContent === '执行') {
+            return;
+        }
+        
+        // 检查是否在武器库页面
+        const weaponLibLink = document.evaluate('//*[@id="main_menu"]/a[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+        if (!weaponLibLink || !weaponLibLink.textContent.includes('武器库')) {
+            alert('请先进入武器库页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 执行幻化流程
+        function executeDisplace() {
+            // 如果已停止，则不继续执行
+            if (button.textContent === '执行') {
+                return;
+            }
+            
+            // 获取剩余次数
+            try {
+                const timesElement = document.getElementById('get_times');
+                const maxTimesElement = document.getElementById('max_get_times');
+                
+                if (!timesElement || !maxTimesElement) {
+                    console.error('未找到次数元素');
+                    setTimeout(executeDisplace, 250);
+                    return;
+                }
+                
+                const usedTimes = parseInt(timesElement.textContent);
+                const maxTimesText = maxTimesElement.textContent;
+                // 从"150周"中提取数字部分
+                const maxTimesMatch = maxTimesText.match(/(\d+)/);
+                const maxTimes = maxTimesMatch ? parseInt(maxTimesMatch[1]) : 0;
+                
+                const remainingTimes = maxTimes - usedTimes;
+                
+                console.log(`武器幻化 - 剩余次数: ${remainingTimes}/${maxTimes} (已使用: ${usedTimes})`);
+                
+                // 如果次数已用完，停止执行
+                if (remainingTimes <= 0) {
+                    console.log('武器幻化 - 次数已用完，停止执行');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 执行幻化操作
+                const rand = Date.now();
+                // 使用unsafeWindow访问页面中的loader对象
+                const loader = unsafeWindow.loader;
+                if (loader) {
+                    loader.get(`/modules/displace.php?act=get&type=4&rand=${rand}`, null, null, null, 'displace_call_back');
+                    // console.log(`武器幻化 - 执行第 ${usedTimes + 1} 次幻化`);
+                } else {
+                    console.error('未找到loader对象');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 等待一段时间后继续下一次幻化
+                setTimeout(executeDisplace, 500);
+            } catch (e) {
+                console.error('武器幻化执行失败:', e);
+                setTimeout(executeDisplace, 500);
+            }
+        }
+        
+        // 开始执行幻化流程
+        executeDisplace();
+    }
+
+    // 厉兵秣马功能
+    function horseTraining() {
+        const button = document.querySelector('button[data-action="horseTraining"]');
+        if (!button || button.textContent === '执行') {
+            return;
+        }
+        
+        // 检查是否在战马页面
+        let isInHorsePage = false;
+        
+        // 方法1：检查URL
+        if (window.location.href.includes('horsees.php')) {
+            isInHorsePage = true;
+        }
+        
+        // 方法2：检查页面元素
+        if (!isInHorsePage) {
+            // 尝试查找战马相关元素
+            if (document.getElementById('get_free') && document.getElementById('max_get_free')) {
+                isInHorsePage = true;
+            }
+        }
+        
+        // 方法3：检查菜单高亮
+        if (!isInHorsePage) {
+            const menuLinks = document.querySelectorAll('#main_menu a');
+            for (const link of menuLinks) {
+                if (link.textContent.includes('战马') && link.classList.contains('highlight')) {
+                    isInHorsePage = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!isInHorsePage) {
+            alert('请先进入战马页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 执行厉兵秣马流程
+        function executeHorseTraining() {
+            // 如果已停止，则不继续执行
+            if (button.textContent === '执行') {
+                return;
+            }
+            
+            // 获取剩余次数
+            try {
+                // 获取铜币次数元素
+                const freeTimesElement = document.getElementById('get_free');
+                const maxFreeTimesElement = document.getElementById('max_get_free');
+                
+                if (!freeTimesElement || !maxFreeTimesElement) {
+                    console.error('未找到铜币次数元素');
+                    setTimeout(executeHorseTraining, 250);
+                    return;
+                }
+                
+                const usedFreeTimes = parseInt(freeTimesElement.textContent);
+                const maxFreeTimesText = maxFreeTimesElement.textContent;
+                // 从"150周"中提取数字部分
+                const maxFreeTimesMatch = maxFreeTimesText.match(/(\d+)/);
+                const maxFreeTimes = maxFreeTimesMatch ? parseInt(maxFreeTimesMatch[1]) : 0;
+                
+                const remainingFreeTimes = maxFreeTimes - usedFreeTimes;
+                
+                console.log(`战马饲料 - 剩余铜币次数: ${remainingFreeTimes}/${maxFreeTimes} (已使用: ${usedFreeTimes})`);
+                
+                // 如果次数已用完，停止执行
+                if (remainingFreeTimes <= 0) {
+                    alert('战马饲料 - 铜币次数已用完，停止执行');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 执行铜币抽取操作
+                const rand = Date.now();
+                // 使用unsafeWindow访问页面中的loader对象
+                const loader = unsafeWindow.loader;
+                if (loader) {
+                    loader.get(`/modules/horsees.php?act=get&type=1&rand=${rand}`, null, null, null, 'horse_call_back');
+                } else {
+                    console.error('未找到loader对象');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 等待一段时间后继续下一次抽取
+                setTimeout(executeHorseTraining, 300);
+            } catch (e) {
+                console.error('战马饲料抽取执行失败:', e);
+                setTimeout(executeHorseTraining, 300);
+            }
+        }
+        
+        // 开始执行厉兵秣马流程
+        executeHorseTraining();
     }
 })();
