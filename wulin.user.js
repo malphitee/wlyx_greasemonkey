@@ -847,17 +847,17 @@
                             }
                             
                             // 继续下一次培养
-                            setTimeout(executeFoster, 250);
+                            setTimeout(executeFoster, 100);
                         } catch (e) {
                             console.error('保存或放弃培养失败:', e);
-                            setTimeout(executeFoster, 250);
+                            setTimeout(executeFoster, 100);
                         }
                     }, 250);
                 } catch (e) {
                     console.error('获取培养结果失败:', e);
-                    setTimeout(executeFoster, 250);
+                    setTimeout(executeFoster, 100);
                 }
-            }, 250);
+            }, 100);
         }
         
         // 开始执行培养流程
