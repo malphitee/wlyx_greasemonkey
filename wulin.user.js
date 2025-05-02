@@ -50,6 +50,17 @@
                 <li>抽取武魂黄金经验宝石 <button class="execute-button" data-action="extractWuhun">执行</button></li>
                 <li>武魂宝石升级 <button class="execute-button" data-action="upgradeGem">执行</button></li>
                 <li>武魂经验一键训练 <input type="number" class="train-times" value="0" min="0" max="100" style="width: 40px;"> <button class="execute-button" data-action="trainWuhun">执行</button></li>
+                <li>一键培养 
+                    <div style="margin: 5px 0;">
+                        <label><input type="checkbox" class="foster-attr" value="str"> 臂力</label>
+                        <label><input type="checkbox" class="foster-attr" value="dex"> 身法</label>
+                        <label><input type="checkbox" class="foster-attr" value="vit"> 根骨</label>
+                    </div>
+                    <div style="margin: 5px 0;">
+                        最多次数: <input type="number" class="foster-times" value="0" min="0" max="1000" style="width: 50px;">
+                    </div>
+                    <button class="execute-button" data-action="fosterWuhun">执行</button>
+                </li>
             </ul>
             <button id="back-button">返回</button>
         </div>
@@ -101,6 +112,19 @@
                         this.dataset.running = 'false';
                     }
                     break;
+                case 'fosterWuhun':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        const fosterTimesInput = document.querySelector('.foster-times');
+                        const fosterTimes = parseInt(fosterTimesInput.value) || 0;
+                        const fosterAttrs = Array.from(document.querySelectorAll('.foster-attr')).filter(attr => attr.checked).map(attr => attr.value);
+                        fosterWuhun(button, fosterTimes, fosterAttrs);
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
                 default:
                     alert('未知功能');
             }
@@ -143,8 +167,6 @@
             }
         }
 
-        console.log(`剩余免费次数: ${freeTimesLeft}, 总剩余次数: ${totalTimesLeft}`);
-
         // 如果没有剩余次数，提示用户
         if (totalTimesLeft <= 0) {
             alert('今日已无剩余抽取次数！');
@@ -152,7 +174,6 @@
         }
 
         // 点击黄金经验按钮
-        console.log('点击黄金经验按钮');
         goldExpButton.click();
         
         // 等待弹窗出现并自动确认
@@ -181,10 +202,7 @@
                 }
             }
             
-            console.log('找到的确认按钮:', confirmButton);
-            
             if (confirmButton) {
-                console.log('找到确认按钮，自动点击');
                 confirmButton.click();
                 
                 // 等待抽取结果显示并处理下一次抽取
@@ -192,7 +210,6 @@
                     // 检查是否有新的确认按钮出现（例如结果提示框）
                     let resultConfirmButton = document.querySelector('input[value="确定"]');
                     if (resultConfirmButton) {
-                        console.log('找到结果确认按钮，自动点击');
                         resultConfirmButton.click();
                     }
                     
@@ -217,11 +234,8 @@
                             updatedTotalTimesLeft = parseInt(totalTimesMatch[1]);
                         }
                         
-                        console.log(`更新后剩余免费次数: ${updatedFreeTimesLeft}, 总剩余次数: ${updatedTotalTimesLeft}`);
-                        
                         // 如果还有免费次数，自动继续抽取
                         if (updatedFreeTimesLeft > 0) {
-                            console.log('还有免费次数，自动继续抽取');
                             setTimeout(extractWuhunGoldExp, 500);
                         } else {
                             alert('所有次数已用完！');
@@ -342,8 +356,6 @@
                             } catch (e) {
                                 // 错误处理，但不输出日志
                             }
-                            
-                            console.log(`当前宝石经验: ${gemExp}`);
                             
                             // 如果按钮仍处于运行状态，则继续循环
                             if (button.dataset.running === 'true') {
@@ -585,5 +597,236 @@
         
         // 开始执行训练流程
         executeTraining();
+    }
+
+    // 一键培养功能
+    function fosterWuhun(button, fosterTimes, fosterAttrs) {
+        // 检查是否选择了属性
+        if (fosterAttrs.length === 0) {
+            alert('请至少选择一个要培养的属性（臂力、身法或根骨）！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+        
+        // 检查是否在培养页面
+        if (!document.querySelector('.dlg_title') || !document.querySelector('.dlg_title').textContent.includes('培养')) {
+            alert('请先进入武魂培养页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 检查按钮状态，如果不是运行状态则退出
+        if (button.dataset.running !== 'true') {
+            return;
+        }
+
+        // 记录当前已执行次数和成功率统计
+        let currentCount = 0;
+        let saveCount = 0;
+        let giveupCount = 0;
+        
+        // 执行培养流程
+        function executeFoster() {
+            // 如果按钮状态变更，则停止
+            if (button.dataset.running !== 'true') {
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
+            // 如果已达到指定次数且指定次数不为0，则停止
+            if (fosterTimes > 0 && currentCount >= fosterTimes) {
+                const successRate = currentCount > 0 ? (saveCount / currentCount * 100).toFixed(2) : 0;
+                console.log(`培养完成：总次数 ${currentCount}，保存 ${saveCount}，放弃 ${giveupCount}，成功率 ${successRate}%`);
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
+            // 1. 点击培养按钮
+            try {
+                // 通过XPath查找培养按钮
+                const xpathResult = document.evaluate('//*[@id="foster_button_ok"]/input', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const fosterButton = xpathResult.singleNodeValue;
+                
+                // 如果找不到，尝试通过value属性查找
+                if (!fosterButton) {
+                    const allButtons = document.querySelectorAll('input[type="submit"]');
+                    for (const btn of allButtons) {
+                        if (btn.value === '培养') {
+                            fosterButton = btn;
+                            break;
+                        }
+                    }
+                }
+                
+                if (fosterButton) {
+                    fosterButton.click();
+                    currentCount++;
+                } else {
+                    console.error('未找到培养按钮');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+            } catch (e) {
+                console.error('点击培养按钮失败:', e);
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
+            // 2. 获取培养结果并决定是保存还是放弃
+            setTimeout(() => {
+                try {
+                    // 获取培养容器
+                    const fosterContainer = document.querySelector('#dlg_soul_foster .container.dlg_train_soul');
+                    if (!fosterContainer) {
+                        console.error('未找到培养容器');
+                        setTimeout(executeFoster, 250);
+                        return;
+                    }
+                    
+                    // 获取原属性和新属性
+                    const rows = fosterContainer.querySelectorAll('table:last-child tbody tr');
+                    let originalAttrs = {};
+                    let newAttrs = {};
+                    let shouldSave = true; // 重置为true
+                    
+                    // 获取属性上限
+                    let attrLimit = 650; // 默认值
+                    const limitText = fosterContainer.querySelector('.highlight');
+                    if (limitText) {
+                        const limitMatch = limitText.textContent.match(/每项属性的养成上限为(\d+)/);
+                        if (limitMatch && limitMatch[1]) {
+                            attrLimit = parseInt(limitMatch[1]);
+                        }
+                    }
+                    
+                    if (rows.length >= 3) {
+                        // 遍历三个属性行
+                        const attrNames = ['str', 'dex', 'vit'];
+                        const attrDisplayNames = ['臂力', '身法', '根骨'];
+                        
+                        for (let i = 0; i < 3; i++) {
+                            const row = rows[i];
+                            const attrName = attrNames[i];
+                            
+                            // 获取原始增长值 - 从第一个单元格的special span获取
+                            const originalAddSpan = row.querySelector('td:first-child .small_font.special');
+                            let originalAddValue = 0;
+                            if (originalAddSpan) {
+                                const addMatch = originalAddSpan.textContent.match(/\+(\d+)/);
+                                if (addMatch && addMatch[1]) {
+                                    originalAddValue = parseInt(addMatch[1]);
+                                }
+                            }
+                            originalAttrs[attrName] = originalAddValue;
+                            
+                            // 获取新增长值 - 从第二个单元格的special span获取
+                            const newAddSpan = row.querySelector('td:nth-child(2) .small_font.special, td:nth-child(2) .small_font.highlight');
+                            let newAddValue = 0;
+                            if (newAddSpan) {
+                                const addMatch = newAddSpan.textContent.match(/\+(\d+)/);
+                                if (addMatch && addMatch[1]) {
+                                    newAddValue = parseInt(addMatch[1]);
+                                }
+                            }
+                            newAttrs[attrName] = newAddValue;
+                            
+                            // 调试输出
+                            console.log(`${attrDisplayNames[i]} - 原增长值: +${originalAddValue}, 新增长值: +${newAddValue}`);
+                        }
+                    }
+                    
+                    // 判断是否应该保存
+                    // 只有勾选的属性都有增长才保存
+                    for (const attr of fosterAttrs) {
+                        // 判断新增长值是否大于原增长值
+                        if (!newAttrs[attr] || newAttrs[attr] <= originalAttrs[attr]) {
+                            shouldSave = false;
+                            break;
+                        }
+                    }
+                    
+                    // 决定保存还是放弃
+                    setTimeout(() => {
+                        try {
+                            // 找出当前最高增长值
+                            let highestAttr = 0;
+                            for (const attr of ['str', 'dex', 'vit']) {
+                                if (newAttrs[attr] > highestAttr) {
+                                    highestAttr = newAttrs[attr];
+                                }
+                            }
+                            
+                            if (shouldSave) {
+                                // 点击保存按钮
+                                const saveButton = document.querySelector('#foster_button_save input[value="保存"]');
+                                if (saveButton) {
+                                    saveButton.click();
+                                    saveCount++;
+                                    
+                                    // 输出保存信息
+                                    let attrChanges = [];
+                                    if (fosterAttrs.includes('str')) {
+                                        attrChanges.push(`臂力: +${originalAttrs.str || 0} → +${newAttrs.str || 0}`);
+                                    }
+                                    if (fosterAttrs.includes('dex')) {
+                                        attrChanges.push(`身法: +${originalAttrs.dex || 0} → +${newAttrs.dex || 0}`);
+                                    }
+                                    if (fosterAttrs.includes('vit')) {
+                                        attrChanges.push(`根骨: +${originalAttrs.vit || 0} → +${newAttrs.vit || 0}`);
+                                    }
+                                    
+                                    const successRate = (saveCount / currentCount * 100).toFixed(2);
+                                    console.log(`第 ${currentCount} 次培养 - 保存 - 最高值: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
+                                } else {
+                                    console.error('未找到保存按钮');
+                                }
+                            } else {
+                                // 点击放弃按钮
+                                const giveupButton = document.querySelector('#foster_button_save input[value="放弃"]');
+                                if (giveupButton) {
+                                    giveupButton.click();
+                                    giveupCount++;
+                                    
+                                    // 输出放弃信息
+                                    let attrChanges = [];
+                                    if (fosterAttrs.includes('str')) {
+                                        attrChanges.push(`臂力: +${originalAttrs.str || 0} → +${newAttrs.str || 0}`);
+                                    }
+                                    if (fosterAttrs.includes('dex')) {
+                                        attrChanges.push(`身法: +${originalAttrs.dex || 0} → +${newAttrs.dex || 0}`);
+                                    }
+                                    if (fosterAttrs.includes('vit')) {
+                                        attrChanges.push(`根骨: +${originalAttrs.vit || 0} → +${newAttrs.vit || 0}`);
+                                    }
+                                    
+                                    const successRate = currentCount > 0 ? (saveCount / currentCount * 100).toFixed(2) : 0;
+                                    console.log(`第 ${currentCount} 次培养 - 放弃 - 最高值: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
+                                } else {
+                                    console.error('未找到放弃按钮');
+                                }
+                            }
+                            
+                            // 继续下一次培养
+                            setTimeout(executeFoster, 250);
+                        } catch (e) {
+                            console.error('保存或放弃培养失败:', e);
+                            setTimeout(executeFoster, 250);
+                        }
+                    }, 250);
+                } catch (e) {
+                    console.error('获取培养结果失败:', e);
+                    setTimeout(executeFoster, 250);
+                }
+            }, 250);
+        }
+        
+        // 开始执行培养流程
+        executeFoster();
     }
 })();
