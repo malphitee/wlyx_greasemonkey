@@ -71,6 +71,7 @@
                 <li>武器幻化 <button class="execute-button" data-action="weaponDisplace">执行</button></li>
                 <li>厉兵秣马 <button class="execute-button" data-action="horseTraining">执行</button></li>
                 <li>先天元神 <button class="execute-button" data-action="meridianTraining">执行</button></li>
+                <li>冲锋陷阵 <button class="execute-button" data-action="diagramTraining">执行</button></li>
             </ul>
             <button id="back-button">返回</button>
         </div>
@@ -165,6 +166,16 @@
                         this.textContent = '停止';
                         this.dataset.running = 'true';
                         meridianTraining();
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'diagramTraining':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        diagramTraining();
                     } else {
                         this.textContent = '执行';
                         this.dataset.running = 'false';
@@ -1209,5 +1220,104 @@
         
         // 开始执行先天元神流程
         executeMeridianTraining();
+    }
+
+    // 冲锋陷阵功能
+    function diagramTraining() {
+        const button = document.querySelector('button[data-action="diagramTraining"]');
+        if (!button || button.textContent === '执行') {
+            return;
+        }
+        
+        // 检查是否在冲锋陷阵页面
+        let isInDiagramPage = false;
+        
+        // 方法1：检查URL
+        if (window.location.href.includes('diagrams.php')) {
+            isInDiagramPage = true;
+        }
+        
+        // 方法2：检查菜单高亮
+        if (!isInDiagramPage) {
+            const menuLinks = document.querySelectorAll('#main_menu a');
+            for (const link of menuLinks) {
+                if (link.textContent.includes('冲锋陷阵') && link.classList.contains('highlight')) {
+                    isInDiagramPage = true;
+                    break;
+                }
+            }
+        }
+        
+        // 方法3：检查页面元素
+        if (!isInDiagramPage) {
+            // 尝试查找冲锋陷阵相关元素
+            if (document.getElementById('get_times') && document.getElementById('max_get_times')) {
+                isInDiagramPage = true;
+            }
+        }
+        
+        if (!isInDiagramPage) {
+            alert('请先进入冲锋陷阵页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 执行冲锋陷阵流程
+        function executeDiagramTraining() {
+            // 如果已停止，则不继续执行
+            if (button.textContent === '执行') {
+                return;
+            }
+            
+            // 获取剩余次数
+            try {
+                // 获取次数元素
+                const timesElement = document.getElementById('get_times');
+                const maxTimesElement = document.getElementById('max_get_times');
+                
+                if (!timesElement || !maxTimesElement) {
+                    console.error('未找到次数元素');
+                    setTimeout(executeDiagramTraining, 250);
+                    return;
+                }
+                
+                const usedTimes = parseInt(timesElement.textContent);
+                const maxTimes = parseInt(maxTimesElement.textContent);
+                const remainingTimes = maxTimes - usedTimes;
+                
+                console.log(`冲锋陷阵 - 剩余次数: ${remainingTimes}/${maxTimes} (已使用: ${usedTimes})`);
+                
+                // 如果次数已用完，停止执行
+                if (remainingTimes <= 0) {
+                    alert('冲锋陷阵 - 次数已用完，停止执行');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 执行抽取操作
+                const rand = Date.now();
+                // 使用unsafeWindow访问页面中的loader对象
+                const loader = unsafeWindow.loader;
+                if (loader) {
+                    loader.get(`/modules/diagrams.php?act=get&type=3&rand=${rand}`, null, null, null, 'diagram_call_back');
+                } else {
+                    console.error('未找到loader对象');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 等待一段时间后继续下一次抽取
+                setTimeout(executeDiagramTraining, 300);
+            } catch (e) {
+                console.error('冲锋陷阵抽取执行失败:', e);
+                setTimeout(executeDiagramTraining, 300);
+            }
+        }
+        
+        // 开始执行冲锋陷阵流程
+        executeDiagramTraining();
     }
 })();
