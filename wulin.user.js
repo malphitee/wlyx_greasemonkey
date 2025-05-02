@@ -748,40 +748,71 @@
                             const row = rows[i];
                             const attrName = attrNames[i];
                             
-                            // 获取原始增长值 - 从第一个单元格的special span获取
-                            const originalAddSpan = row.querySelector('td:first-child .small_font.special');
-                            let originalAddValue = 0;
-                            if (originalAddSpan) {
-                                const addMatch = originalAddSpan.textContent.match(/\+(\d+)/);
-                                if (addMatch && addMatch[1]) {
-                                    originalAddValue = parseInt(addMatch[1]);
-                                }
+                            // 获取原始属性值 - 从第一个单元格获取
+                            let originalValue = 0;
+                            const originalSpan = row.querySelector('td:first-child .small_font');
+                            if (originalSpan) {
+                                originalValue = parseInt(originalSpan.textContent) || 0;
                             }
-                            originalAttrs[attrName] = originalAddValue;
+                            originalAttrs[attrName] = originalValue;
                             
-                            // 获取新增长值 - 从第二个单元格的special span获取
-                            const newAddSpan = row.querySelector('td:nth-child(2) .small_font.special, td:nth-child(2) .small_font.highlight');
+                            // 获取新属性值 - 从第二个单元格获取
+                            let newValue = 0;
                             let newAddValue = 0;
-                            if (newAddSpan) {
-                                const addMatch = newAddSpan.textContent.match(/\+(\d+)/);
-                                if (addMatch && addMatch[1]) {
-                                    newAddValue = parseInt(addMatch[1]);
+                            const newSpan = row.querySelector(`td:nth-child(2) #foster_save_${attrName}`);
+                            if (newSpan) {
+                                // 获取基础值
+                                const newBaseSpan = newSpan.querySelector('.small_font:not(.special)');
+                                if (newBaseSpan) {
+                                    newValue = parseInt(newBaseSpan.textContent) || 0;
+                                }
+                                
+                                // 获取增长值
+                                const newAddSpan = newSpan.querySelector('.small_font.special');
+                                if (newAddSpan) {
+                                    const addMatch = newAddSpan.textContent.match(/\+(\d+)/);
+                                    if (addMatch && addMatch[1]) {
+                                        newAddValue = parseInt(addMatch[1]);
+                                    }
                                 }
                             }
-                            newAttrs[attrName] = newAddValue;
+                            
+                            // 如果没有获取到新值，使用原值
+                            if (newValue === 0) {
+                                newValue = originalValue;
+                            }
+                            
+                            // 保存属性值和增长值
+                            originalAttrs[attrName] = originalValue;
+                            newAttrs[attrName] = newValue;
+                            originalAttrs[attrName + '_add'] = 0; // 原增长值总是0
+                            newAttrs[attrName + '_add'] = newAddValue;
                             
                             // 调试输出
-                            console.log(`${attrDisplayNames[i]} - 原增长值: +${originalAddValue}, 新增长值: +${newAddValue}`);
+                            console.log(`${attrDisplayNames[i]} - 原值: ${originalValue}, 新值: ${newValue} (增长: +${newAddValue})`);
                         }
                     }
                     
                     // 判断是否应该保存
-                    // 只有勾选的属性都有增长才保存
-                    for (const attr of fosterAttrs) {
-                        // 判断新增长值是否大于原增长值
-                        if (!newAttrs[attr] || newAttrs[attr] <= originalAttrs[attr]) {
-                            shouldSave = false;
+                    // 只要有任何属性有增长，且选中的属性没有变差，就保存
+                    let anyAttrImproved = false;
+                    for (const attr of ['str', 'dex', 'vit']) {
+                        if (newAttrs[attr + '_add'] > 0) {
+                            anyAttrImproved = true;
                             break;
+                        }
+                    }
+                    
+                    // 如果没有任何属性有增长，则放弃
+                    if (!anyAttrImproved) {
+                        shouldSave = false;
+                    } else {
+                        // 检查选中的属性是否有任何一个属性没有增长
+                        for (const attr of fosterAttrs) {
+                            if (newAttrs[attr + '_add'] <= 0) {
+                                shouldSave = false;
+                                break;
+                            }
                         }
                     }
                     
@@ -791,8 +822,8 @@
                             // 找出当前最高增长值
                             let highestAttr = 0;
                             for (const attr of ['str', 'dex', 'vit']) {
-                                if (newAttrs[attr] > highestAttr) {
-                                    highestAttr = newAttrs[attr];
+                                if (newAttrs[attr + '_add'] > highestAttr) {
+                                    highestAttr = newAttrs[attr + '_add'];
                                 }
                             }
                             
@@ -806,17 +837,17 @@
                                     // 输出保存信息
                                     let attrChanges = [];
                                     if (fosterAttrs.includes('str')) {
-                                        attrChanges.push(`臂力: +${originalAttrs.str || 0} → +${newAttrs.str || 0}`);
+                                        attrChanges.push(`臂力: +${newAttrs.str_add || 0}`);
                                     }
                                     if (fosterAttrs.includes('dex')) {
-                                        attrChanges.push(`身法: +${originalAttrs.dex || 0} → +${newAttrs.dex || 0}`);
+                                        attrChanges.push(`身法: +${newAttrs.dex_add || 0}`);
                                     }
                                     if (fosterAttrs.includes('vit')) {
-                                        attrChanges.push(`根骨: +${originalAttrs.vit || 0} → +${newAttrs.vit || 0}`);
+                                        attrChanges.push(`根骨: +${newAttrs.vit_add || 0}`);
                                     }
                                     
                                     const successRate = (saveCount / currentCount * 100).toFixed(2);
-                                    console.log(`第 ${currentCount} 次培养 - 保存 - 最高值: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
+                                    console.log(`第 ${currentCount} 次培养 - 保存 - 最高增长: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
                                 } else {
                                     console.error('未找到保存按钮');
                                 }
@@ -830,17 +861,17 @@
                                     // 输出放弃信息
                                     let attrChanges = [];
                                     if (fosterAttrs.includes('str')) {
-                                        attrChanges.push(`臂力: +${originalAttrs.str || 0} → +${newAttrs.str || 0}`);
+                                        attrChanges.push(`臂力: +${newAttrs.str_add || 0}`);
                                     }
                                     if (fosterAttrs.includes('dex')) {
-                                        attrChanges.push(`身法: +${originalAttrs.dex || 0} → +${newAttrs.dex || 0}`);
+                                        attrChanges.push(`身法: +${newAttrs.dex_add || 0}`);
                                     }
                                     if (fosterAttrs.includes('vit')) {
-                                        attrChanges.push(`根骨: +${originalAttrs.vit || 0} → +${newAttrs.vit || 0}`);
+                                        attrChanges.push(`根骨: +${newAttrs.vit_add || 0}`);
                                     }
                                     
                                     const successRate = currentCount > 0 ? (saveCount / currentCount * 100).toFixed(2) : 0;
-                                    console.log(`第 ${currentCount} 次培养 - 放弃 - 最高值: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
+                                    console.log(`第 ${currentCount} 次培养 - 放弃 - 最高增长: +${highestAttr}/${attrLimit} - ${attrChanges.join(', ')} - 成功率: ${successRate}% (${saveCount}/${currentCount})`);
                                 } else {
                                     console.error('未找到放弃按钮');
                                 }
@@ -872,9 +903,34 @@
         }
         
         // 检查是否在武器库页面
-        const weaponLibLink = document.evaluate('//*[@id="main_menu"]/a[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        if (!weaponLibLink || !weaponLibLink.textContent.includes('武器库')) {
-            alert('请先进入武器库页面！');
+        let isInHorsePage = false;
+        
+        // 方法1：检查URL
+        if (window.location.href.includes('horsees.php')) {
+            isInHorsePage = true;
+        }
+        
+        // 方法2：检查页面元素
+        if (!isInHorsePage) {
+            // 尝试查找战马相关元素
+            if (document.getElementById('get_free') && document.getElementById('max_get_free')) {
+                isInHorsePage = true;
+            }
+        }
+        
+        // 方法3：检查菜单高亮
+        if (!isInHorsePage) {
+            const menuLinks = document.querySelectorAll('#main_menu a');
+            for (const link of menuLinks) {
+                if (link.textContent.includes('战马') && link.classList.contains('highlight')) {
+                    isInHorsePage = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!isInHorsePage) {
+            alert('请先进入战马页面！');
             button.textContent = '执行';
             button.dataset.running = 'false';
             return;
