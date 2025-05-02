@@ -701,6 +701,71 @@
                 return;
             }
             
+            // 获取原始属性值
+            const rows = document.querySelectorAll('.role_points table:nth-of-type(2) tbody tr');
+            if (rows.length < 3) {
+                console.error('未找到属性行');
+                setTimeout(executeFoster, 100);
+                return;
+            }
+            
+            // 获取属性上限
+            let attrLimit = 0;
+            const limitText = document.querySelector('.role_points p.highlight');
+            if (limitText) {
+                const limitMatch = limitText.textContent.match(/上限为(\d+)/);
+                if (limitMatch && limitMatch[1]) {
+                    attrLimit = parseInt(limitMatch[1]);
+                }
+            }
+            
+            // 检查是否有选中的属性已满
+            let hasSelectedFullAttr = false;
+            let fullAttrName = '';
+            
+            // 属性名称映射
+            const attrDisplayNames = ['臂力', '身法', '根骨'];
+            const attrNames = ['str', 'dex', 'vit'];
+            
+            // 保存原始属性值和新属性值
+            const originalAttrs = {};
+            const newAttrs = {};
+            
+            // 遍历三个属性行
+            for (let i = 0; i < 3; i++) {
+                const row = rows[i];
+                const attrName = attrNames[i];
+                
+                // 获取原始属性值 - 从第一个单元格获取
+                let originalValue = 0;
+                const originalSpan = row.querySelector('td:first-child .small_font');
+                if (originalSpan) {
+                    originalValue = parseInt(originalSpan.textContent) || 0;
+                }
+                
+                // 检查是否有"（满）"标记
+                const specialSpan = row.querySelector('td:first-child .small_font.highlight, td:first-child .small_font.special');
+                if (specialSpan && (specialSpan.textContent.includes('（满）') || specialSpan.textContent.includes('满'))) {
+                    // 只有当这个已满的属性是用户选中的属性时才提示
+                    if (fosterAttrs.includes(attrName)) {
+                        hasSelectedFullAttr = true;
+                        fullAttrName = attrDisplayNames[i];
+                        break;
+                    }
+                }
+                
+                // 保存原始属性值
+                originalAttrs[attrName] = originalValue;
+            }
+            
+            // 如果选中的属性已满，则提示用户并停止
+            if (hasSelectedFullAttr) {
+                alert(`选中的属性已满：${fullAttrName} 已达到上限，停止培养`);
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
             // 1. 点击培养按钮
             try {
                 // 通过XPath查找培养按钮
@@ -741,81 +806,57 @@
                     const fosterContainer = document.querySelector('#dlg_soul_foster .container.dlg_train_soul');
                     if (!fosterContainer) {
                         console.error('未找到培养容器');
-                        setTimeout(executeFoster, 250);
+                        setTimeout(executeFoster, 100);
                         return;
                     }
                     
-                    // 获取原属性和新属性
-                    const rows = fosterContainer.querySelectorAll('table:last-child tbody tr');
-                    let originalAttrs = {};
-                    let newAttrs = {};
-                    let shouldSave = true; // 重置为true
-                    
-                    // 获取属性上限
-                    let attrLimit = 650; // 默认值
-                    const limitText = fosterContainer.querySelector('.highlight');
-                    if (limitText) {
-                        const limitMatch = limitText.textContent.match(/每项属性的养成上限为(\d+)/);
-                        if (limitMatch && limitMatch[1]) {
-                            attrLimit = parseInt(limitMatch[1]);
-                        }
+                    // 获取新属性值
+                    const newRows = fosterContainer.querySelectorAll('table:last-child tbody tr');
+                    if (newRows.length < 3) {
+                        console.error('未找到新属性行');
+                        setTimeout(executeFoster, 100);
+                        return;
                     }
                     
-                    if (rows.length >= 3) {
-                        // 遍历三个属性行
-                        const attrNames = ['str', 'dex', 'vit'];
-                        const attrDisplayNames = ['臂力', '身法', '根骨'];
+                    // 保存新属性值
+                    for (let i = 0; i < 3; i++) {
+                        const row = newRows[i];
+                        const attrName = attrNames[i];
                         
-                        for (let i = 0; i < 3; i++) {
-                            const row = rows[i];
-                            const attrName = attrNames[i];
-                            
-                            // 获取原始属性值 - 从第一个单元格获取
-                            let originalValue = 0;
-                            const originalSpan = row.querySelector('td:first-child .small_font');
-                            if (originalSpan) {
-                                originalValue = parseInt(originalSpan.textContent) || 0;
+                        // 获取新属性值 - 从第二个单元格获取
+                        let newValue = 0;
+                        let newAddValue = 0;
+                        const newSpan = row.querySelector(`td:nth-child(2) #foster_save_${attrName}`);
+                        if (newSpan) {
+                            // 获取基础值
+                            const newBaseSpan = newSpan.querySelector('.small_font:not(.special)');
+                            if (newBaseSpan) {
+                                newValue = parseInt(newBaseSpan.textContent) || 0;
                             }
-                            originalAttrs[attrName] = originalValue;
                             
-                            // 获取新属性值 - 从第二个单元格获取
-                            let newValue = 0;
-                            let newAddValue = 0;
-                            const newSpan = row.querySelector(`td:nth-child(2) #foster_save_${attrName}`);
-                            if (newSpan) {
-                                // 获取基础值
-                                const newBaseSpan = newSpan.querySelector('.small_font:not(.special)');
-                                if (newBaseSpan) {
-                                    newValue = parseInt(newBaseSpan.textContent) || 0;
-                                }
-                                
-                                // 获取增长值
-                                const newAddSpan = newSpan.querySelector('.small_font.special');
-                                if (newAddSpan) {
-                                    const addMatch = newAddSpan.textContent.match(/\+(\d+)/);
-                                    if (addMatch && addMatch[1]) {
-                                        newAddValue = parseInt(addMatch[1]);
-                                    }
+                            // 获取增长值
+                            const newAddSpan = newSpan.querySelector('.small_font.special');
+                            if (newAddSpan) {
+                                const addMatch = newAddSpan.textContent.match(/\+(\d+)/);
+                                if (addMatch && addMatch[1]) {
+                                    newAddValue = parseInt(addMatch[1]);
                                 }
                             }
-                            
-                            // 如果没有获取到新值，使用原值
-                            if (newValue === 0) {
-                                newValue = originalValue;
-                            }
-                            
-                            // 保存属性值和增长值
-                            originalAttrs[attrName] = originalValue;
-                            newAttrs[attrName] = newValue;
-                            originalAttrs[attrName + '_add'] = 0; // 原增长值总是0
-                            newAttrs[attrName + '_add'] = newAddValue;
-                            
-                            // 调试输出
-                            console.log(`${attrDisplayNames[i]} - 原值: ${originalValue}, 新值: ${newValue} (增长: +${newAddValue})`);
                         }
+                        
+                        // 如果没有获取到新值，使用原值
+                        if (newValue === 0) {
+                            newValue = originalAttrs[attrName];
+                        }
+                        
+                        // 保存属性值和增长值
+                        newAttrs[attrName] = newValue;
+                        newAttrs[attrName + '_add'] = newAddValue;
                     }
                     
                     // 判断是否应该保存
+                    let shouldSave = true; // 默认保存
+                    
                     // 只要有任何属性有增长，且选中的属性没有变差，就保存
                     let anyAttrImproved = false;
                     for (const attr of ['str', 'dex', 'vit']) {
