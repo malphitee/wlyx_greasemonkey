@@ -49,6 +49,7 @@
             <ul class="module-list">
                 <li>抽取武魂黄金经验宝石 <button class="execute-button" data-action="extractWuhun">执行</button></li>
                 <li>武魂宝石升级 <button class="execute-button" data-action="upgradeGem">执行</button></li>
+                <li>武魂经验一键训练 <input type="number" class="train-times" value="0" min="0" max="100" style="width: 40px;"> <button class="execute-button" data-action="trainWuhun">执行</button></li>
             </ul>
             <button id="back-button">返回</button>
         </div>
@@ -83,6 +84,18 @@
                         this.textContent = '停止';
                         this.dataset.running = 'true';
                         upgradeGem(this);
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'trainWuhun':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        const trainTimesInput = document.querySelector('.train-times');
+                        const trainTimes = parseInt(trainTimesInput.value) || 0;
+                        trainWuhun(this, trainTimes);
                     } else {
                         this.textContent = '执行';
                         this.dataset.running = 'false';
@@ -341,5 +354,236 @@
                 }, 150);
             }, 150);
         }, 150);
+    }
+
+    // 一键训练功能
+    function trainWuhun(button, trainTimes) {
+        // 检查是否在武魂训练页面
+        if (!document.querySelector('.dlg_title') || !document.querySelector('.dlg_title').textContent.includes('武魂训练')) {
+            alert('请先进入武魂训练页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 检查按钮状态，如果不是运行状态则退出
+        if (button.dataset.running !== 'true') {
+            return;
+        }
+
+        // 获取当前武魂ID
+        let soulId = '';
+        try {
+            const xpathResult = document.evaluate('//*[@id="soul_name_select_0"]/option[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            const soulOption = xpathResult.singleNodeValue;
+            
+            if (soulOption && soulOption.hasAttribute('value')) {
+                soulId = soulOption.getAttribute('value');
+            } else {
+                // 如果找不到，尝试其他方式
+                const soulSelect = document.querySelector('#soul_name_select_0');
+                if (soulSelect && soulSelect.options && soulSelect.options.length > 1) {
+                    soulId = soulSelect.options[1].value;
+                }
+            }
+            
+            if (!soulId) {
+                alert('未能获取武魂ID，请确认当前页面是否正确！');
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+        } catch (e) {
+            alert('获取武魂ID失败，请确认当前页面是否正确！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 记录当前已执行次数
+        let currentCount = 0;
+        
+        // 执行训练流程
+        function executeTraining() {
+            // 如果按钮状态变更，则停止
+            if (button.dataset.running !== 'true') {
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
+            // 如果已达到指定次数且指定次数不为0，则停止
+            if (trainTimes > 0 && currentCount >= trainTimes) {
+                button.textContent = '执行';
+                button.dataset.running = 'false';
+                return;
+            }
+            
+            // 1. 开启训练
+            try {
+                if (typeof clsSoul === 'function' || typeof clsSoul === 'object') {
+                    if (typeof clsSoul.open === 'function') {
+                        unsafeWindow.clsSoul.open(`act=train&op=start&mirror_type=0&add_exp_mult_flag=0&new_soul_train_type=2&soul_id=${soulId}&hour=48`);
+                    } else {
+                        eval(`unsafeWindow.clsSoul.open("act=train&op=start&mirror_type=0&add_exp_mult_flag=0&new_soul_train_type=2&soul_id=${soulId}&hour=48")`);
+                    }
+                    
+                    if (typeof dialog !== 'undefined' && typeof dialog.close === 'function') {
+                        unsafeWindow.dialog.close();
+                    }
+                } else {
+                    eval(`
+                        unsafeWindow.clsSoul.open("act=train&op=start&mirror_type=0&add_exp_mult_flag=0&new_soul_train_type=2&soul_id=${soulId}&hour=48"); 
+                        unsafeWindow.dialog.close();
+                    `);
+                }
+            } catch (e) {
+                console.error('执行开始训练失败:', e);
+            }
+            
+            // 2. 点击"立即完成"按钮
+            setTimeout(() => {
+                try {
+                    // 通过XPath查找"立即完成"按钮
+                    const xpathResult = document.evaluate('//*[@id="dlg_soul_train"]/table/tbody/tr/td/div[1]/div/div/div/div/div/div/div/div/table/tbody/tr/td[4]/input[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                    const completeButton = xpathResult.singleNodeValue;
+                    
+                    // 如果找不到，尝试通过value属性查找
+                    if (!completeButton) {
+                        const allButtons = document.querySelectorAll('input[type="button"]');
+                        for (const btn of allButtons) {
+                            if (btn.value === '立即完成') {
+                                completeButton = btn;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (completeButton) {
+                        completeButton.click();
+                    } else {
+                        console.error('未找到立即完成按钮');
+                        // 继续下一次训练
+                        currentCount++;
+                        setTimeout(executeTraining, 250);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('点击立即完成按钮失败:', e);
+                    // 继续下一次训练
+                    currentCount++;
+                    setTimeout(executeTraining, 250);
+                    return;
+                }
+                
+                // 3. 检查是否有免费立即完成的机会并点击确定按钮
+                setTimeout(() => {
+                    try {
+                        // 查找确认对话框
+                        const dialogContent = document.querySelector('#dialog_box1 .dlg_content');
+                        
+                        // 提取剩余免费次数
+                        let freeTimesLeft = 0;
+                        if (dialogContent) {
+                            // 尝试从HTML内容中提取
+                            const htmlContent = dialogContent.innerHTML || '';
+                            const freeTimesMatch = htmlContent.match(/当前你还有<span[^>]*>(\d+)<\/span>次免费使用立即完成机会/);
+                            if (freeTimesMatch && freeTimesMatch[1]) {
+                                freeTimesLeft = parseInt(freeTimesMatch[1]);
+                            } else {
+                                // 尝试从文本内容中提取
+                                const textContent = dialogContent.textContent || '';
+                                const textMatch = textContent.match(/当前你还有\s*(\d+)\s*次免费使用立即完成机会/);
+                                if (textMatch && textMatch[1]) {
+                                    freeTimesLeft = parseInt(textMatch[1]);
+                                }
+                            }
+                        }
+                        
+                        // 保存剩余免费次数，供后续使用
+                        window.freeTrainTimesLeft = freeTimesLeft;
+                        
+                        // 检查是否有免费次数
+                        if (dialogContent && dialogContent.textContent.includes('次免费使用立即完成机会')) {
+                            // 查找确定按钮
+                            const confirmButton = dialogContent.querySelector('input[value="确定"]');
+                            if (confirmButton) {
+                                confirmButton.click();
+                            } else {
+                                console.error('未找到确定按钮');
+                                // 继续下一次训练
+                                currentCount++;
+                                setTimeout(executeTraining, 250);
+                                return;
+                            }
+                        } else {
+                            console.log('没有免费立即完成的机会，停止训练');
+                            // 点击取消按钮
+                            const cancelButton = document.querySelector('#dialog_box1 input[value="取消"]');
+                            if (cancelButton) {
+                                cancelButton.click();
+                            }
+                            // 训练完成，停止循环
+                            button.textContent = '执行';
+                            button.dataset.running = 'false';
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('检查免费次数失败:', e);
+                        // 继续下一次训练
+                        currentCount++;
+                        setTimeout(executeTraining, 250);
+                        return;
+                    }
+                    
+                    // 4. 点击训练完成后的确认按钮
+                    setTimeout(() => {
+                        try {
+                            // 查找训练完成的确认按钮
+                            const finalConfirmButton = document.querySelector('#dialog_box1 input[value="确定"]');
+                            if (finalConfirmButton) {
+                                finalConfirmButton.click();
+                            }
+                        } catch (e) {
+                            console.error('点击最终确认按钮失败:', e);
+                        }
+                        
+                        // 获取当前五行经验
+                        setTimeout(() => {
+                            try {
+                                // 尝试通过XPath获取五行经验元素
+                                const xpathResult = document.evaluate('//*[@id="column_show_left"]/div/div[2]/table/tbody/tr[6]/td/div/p', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                const expBar = xpathResult.singleNodeValue;
+                                
+                                let expText = '未知';
+                                if (expBar && expBar.hasAttribute('titlecontent')) {
+                                    const titleContent = expBar.getAttribute('titlecontent');
+                                    const expMatch = titleContent.match(/当前五行经验：(\d+)\s*\/\s*(\d+)/);
+                                    if (expMatch && expMatch[1] && expMatch[2]) {
+                                        const currentExp = parseInt(expMatch[1]);
+                                        const maxExp = parseInt(expMatch[2]);
+                                        expText = `${currentExp}/${maxExp} (${Math.round(currentExp/maxExp*100)}%)`;
+                                    }
+                                }
+                                
+                                // 输出当前五行经验
+                                console.log(`当前五行经验: ${expText} - 已训练 ${++currentCount}/${trainTimes > 0 ? trainTimes : '∞'} 次 - 剩余免费次数: ${window.freeTrainTimesLeft || 0}`);
+                                
+                                // 继续下一次训练
+                                setTimeout(executeTraining, 250);
+                            } catch (e) {
+                                console.error('获取五行经验失败:', e);
+                                // 即使获取经验失败，也继续下一次训练
+                                currentCount++;
+                                setTimeout(executeTraining, 250);
+                            }
+                        }, 250);
+                    }, 250);
+                }, 250);
+            }, 250);
+        }
+        
+        // 开始执行训练流程
+        executeTraining();
     }
 })();
