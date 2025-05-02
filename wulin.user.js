@@ -70,6 +70,7 @@
             <ul class="module-list">
                 <li>武器幻化 <button class="execute-button" data-action="weaponDisplace">执行</button></li>
                 <li>厉兵秣马 <button class="execute-button" data-action="horseTraining">执行</button></li>
+                <li>先天元神 <button class="execute-button" data-action="meridianTraining">执行</button></li>
             </ul>
             <button id="back-button">返回</button>
         </div>
@@ -154,6 +155,16 @@
                         this.textContent = '停止';
                         this.dataset.running = 'true';
                         horseTraining();
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'meridianTraining':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        meridianTraining();
                     } else {
                         this.textContent = '执行';
                         this.dataset.running = 'false';
@@ -1099,5 +1110,104 @@
         
         // 开始执行厉兵秣马流程
         executeHorseTraining();
+    }
+
+    // 先天元神功能
+    function meridianTraining() {
+        const button = document.querySelector('button[data-action="meridianTraining"]');
+        if (!button || button.textContent === '执行') {
+            return;
+        }
+        
+        // 检查是否在先天元神页面
+        let isInMeridianPage = false;
+        
+        // 方法1：检查URL
+        if (window.location.href.includes('meridians.php')) {
+            isInMeridianPage = true;
+        }
+        
+        // 方法2：检查菜单高亮
+        if (!isInMeridianPage) {
+            const menuLinks = document.querySelectorAll('#main_menu a');
+            for (const link of menuLinks) {
+                if (link.textContent.includes('先天元神') && link.classList.contains('highlight')) {
+                    isInMeridianPage = true;
+                    break;
+                }
+            }
+        }
+        
+        // 方法3：检查页面元素
+        if (!isInMeridianPage) {
+            // 尝试查找先天元神相关元素
+            if (document.getElementById('get_times') && document.getElementById('max_get_times')) {
+                isInMeridianPage = true;
+            }
+        }
+        
+        if (!isInMeridianPage) {
+            alert('请先进入先天元神页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 执行先天元神流程
+        function executeMeridianTraining() {
+            // 如果已停止，则不继续执行
+            if (button.textContent === '执行') {
+                return;
+            }
+            
+            // 获取剩余次数
+            try {
+                // 获取次数元素
+                const timesElement = document.getElementById('get_times');
+                const maxTimesElement = document.getElementById('max_get_times');
+                
+                if (!timesElement || !maxTimesElement) {
+                    console.error('未找到次数元素');
+                    setTimeout(executeMeridianTraining, 250);
+                    return;
+                }
+                
+                const usedTimes = parseInt(timesElement.textContent);
+                const maxTimes = parseInt(maxTimesElement.textContent);
+                const remainingTimes = maxTimes - usedTimes;
+                
+                console.log(`先天元神 - 剩余次数: ${remainingTimes}/${maxTimes} (已使用: ${usedTimes})`);
+                
+                // 如果次数已用完，停止执行
+                if (remainingTimes <= 0) {
+                    alert('先天元神 - 次数已用完，停止执行');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 执行抽取操作
+                const rand = Date.now();
+                // 使用unsafeWindow访问页面中的loader对象
+                const loader = unsafeWindow.loader;
+                if (loader) {
+                    loader.get(`/modules/meridians.php?act=get&type=3&rand=${rand}`, null, null, null, 'meridian_call_back');
+                } else {
+                    console.error('未找到loader对象');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 等待一段时间后继续下一次抽取
+                setTimeout(executeMeridianTraining, 300);
+            } catch (e) {
+                console.error('先天元神抽取执行失败:', e);
+                setTimeout(executeMeridianTraining, 300);
+            }
+        }
+        
+        // 开始执行先天元神流程
+        executeMeridianTraining();
     }
 })();
