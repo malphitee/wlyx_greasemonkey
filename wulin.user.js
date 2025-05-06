@@ -72,6 +72,7 @@
                 <li>厉兵秣马 <button class="execute-button" data-action="horseTraining">执行</button></li>
                 <li>先天元神 <button class="execute-button" data-action="meridianTraining">执行</button></li>
                 <li>冲锋陷阵 <button class="execute-button" data-action="diagramTraining">执行</button></li>
+                <li>星辰抽取 <button class="execute-button" data-action="totemExtract">执行</button></li>
             </ul>
             <button id="back-button">返回</button>
         </div>
@@ -176,6 +177,16 @@
                         this.textContent = '停止';
                         this.dataset.running = 'true';
                         diagramTraining();
+                    } else {
+                        this.textContent = '执行';
+                        this.dataset.running = 'false';
+                    }
+                    break;
+                case 'totemExtract':
+                    if (this.textContent === '执行') {
+                        this.textContent = '停止';
+                        this.dataset.running = 'true';
+                        totemExtract();
                     } else {
                         this.textContent = '执行';
                         this.dataset.running = 'false';
@@ -1351,14 +1362,115 @@
                 }
                 
                 // 等待一段时间后继续下一次抽取
-                setTimeout(executeDiagramTraining, 300);
+                setTimeout(executeDiagramTraining, 100);
             } catch (e) {
                 console.error('冲锋陷阵抽取执行失败:', e);
-                setTimeout(executeDiagramTraining, 300);
+                setTimeout(executeDiagramTraining, 100);
             }
         }
         
         // 开始执行冲锋陷阵流程
         executeDiagramTraining();
+    }
+
+    // 星辰抽取功能
+    function totemExtract() {
+        const button = document.querySelector('button[data-action="totemExtract"]');
+        if (!button || button.textContent === '执行') {
+            return;
+        }
+        
+        // 检查是否在星辰页面
+        let isInTotemPage = false;
+        
+        // 方法1：检查URL
+        if (window.location.href.includes('totem.php')) {
+            isInTotemPage = true;
+        }
+        
+        // 方法2：检查菜单高亮
+        if (!isInTotemPage) {
+            const menuLinks = document.querySelectorAll('#main_menu a');
+            for (const link of menuLinks) {
+                if (link.textContent.includes('星辰合成') && link.classList.contains('highlight')) {
+                    isInTotemPage = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!isInTotemPage) {
+            alert('请先进入星辰合成页面！');
+            button.textContent = '执行';
+            button.dataset.running = 'false';
+            return;
+        }
+
+        // 执行星辰抽取流程
+        let extractCount = 0; // 记录抽取次数，每10次整理一次
+        
+        function executeTotemExtract() {
+            // 如果已停止，则不继续执行
+            if (button.textContent === '执行') {
+                return;
+            }
+            
+            try {
+                // 使用unsafeWindow访问页面中的loader对象和其他全局变量
+                const loader = unsafeWindow.loader;
+                const gAlertDialogOpen = unsafeWindow.gAlertDialogOpen;
+                const process = unsafeWindow.process;
+                const dialog = unsafeWindow.dialog;
+                
+                if (!loader) {
+                    console.error('未找到loader对象');
+                    button.textContent = '执行';
+                    button.dataset.running = 'false';
+                    return;
+                }
+                
+                // 检查是否需要整理
+                if (extractCount >= 10) {
+                    console.log('星辰抽取 - 执行整理操作');
+                    
+                    // 执行整理操作
+                    unsafeWindow.gAlertDialogOpen = false;
+                    if (process && process.start) {
+                        process.start();
+                    }
+                    loader.get('/modules/totem.php?act=blend&op=clean', null, null, null, 'callbackRoleTotemStudy');
+                    if (dialog && dialog.close) {
+                        dialog.close(this);
+                    }
+                    
+                    // 重置计数器
+                    extractCount = 0;
+                    
+                    // 等待整理完成后继续抽取
+                    setTimeout(executeTotemExtract, 200);
+                    return;
+                }
+                
+                // 执行抽取操作
+                console.log(`星辰抽取 - 执行第 ${extractCount + 1} 次抽取`);
+                unsafeWindow.gAlertDialogOpen = false;
+                loader.get('./modules/totem.php?act=blend&op=get&submit=1&type=money&rand=' + new Date().getTime(), null, null, null, 'callbackRoleTotemStudy');
+                if (dialog && dialog.close) {
+                    dialog.close(this);
+                }
+                
+                // 增加计数器
+                extractCount++;
+                
+                // 等待一段时间后继续下一次抽取
+                setTimeout(executeTotemExtract, 100);
+            } catch (e) {
+                console.error('星辰抽取执行失败:', e);
+                setTimeout(executeTotemExtract, 100);
+            }
+        }
+        
+        // 开始执行星辰抽取流程
+        executeTotemExtract();
     }
 })();
