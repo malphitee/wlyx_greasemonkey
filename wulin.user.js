@@ -731,11 +731,9 @@
             }
             
             // 检查是否有选中的属性已满
-            let hasSelectedFullAttr = false;
-            let fullAttrName = '';
+            let fullSelectedAttrCount = 0;
             
             // 属性名称映射
-            const attrDisplayNames = ['臂力', '身法', '根骨'];
             const attrNames = ['str', 'dex', 'vit'];
             
             // 保存原始属性值和新属性值
@@ -757,11 +755,9 @@
                 // 检查是否有"（满）"标记
                 const specialSpan = row.querySelector('td:first-child .small_font.highlight, td:first-child .small_font.special');
                 if (specialSpan && (specialSpan.textContent.includes('（满）') || specialSpan.textContent.includes('满'))) {
-                    // 只有当这个已满的属性是用户选中的属性时才提示
+                    // 只有当这个已满的属性是用户选中的属性时才计数
                     if (fosterAttrs.includes(attrName)) {
-                        hasSelectedFullAttr = true;
-                        fullAttrName = attrDisplayNames[i];
-                        break;
+                        fullSelectedAttrCount++;
                     }
                 }
                 
@@ -769,9 +765,9 @@
                 originalAttrs[attrName] = originalValue;
             }
             
-            // 如果选中的属性已满，则提示用户并停止
-            if (hasSelectedFullAttr) {
-                alert(`选中的属性已满：${fullAttrName} 已达到上限，停止培养`);
+            // 如果所有选中的属性都已满，则提示用户并停止
+            if (fosterAttrs.length > 0 && fullSelectedAttrCount >= fosterAttrs.length) {
+                alert('所有选中的属性都已达到上限，停止培养');
                 button.textContent = '执行';
                 button.dataset.running = 'false';
                 return;
